@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>UTMApp LE 3.0.6</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: #f0f0f0;
+      }
+
+      #controls {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1000;
+        background-color: rgba(255, 255, 255, 0.9);
+        padding: 20px;
+        border-radius: 10px;
+        font-family: Arial, sans-serif;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        max-width: 500px;
+        width: 90%;
+      }
+
+      #controls label {
+        display: block;
+        margin-bottom: 5px;
+      }
+
+      #controls input,
+      #controls select,
+      #controls textarea {
+        width: 100%;
+        margin-bottom: 10px;
+        box-sizing: border-box;
+        padding: 5px;
+      }
+
+      #startButton {
+        width: 100%;
+        padding: 10px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      #localHeaders {
+        margin-top: 10px;
+      }
+
+      .header-entry {
+        display: flex;
+        gap: 5px;
+      }
+
+      .header-entry input {
+        flex: 1;
+      }
+
+      .remove-header {
+        padding: 0 8px;
+        background: #aaa;
+        color: white;
+        border: none;
+        border-radius: 2px;
+        cursor: pointer;
+        height: 28px;
+        line-height: 28px;
+      }
+
+      #addHeader {
+        width: 100%;
+        margin-top: 5px;
+        padding: 5px;
+        background: #aaa;
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+
+      #overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        z-index: 999;
+      }
+
+      .directive-toggle {
+        background: none;
+        border: none;
+        color: #0066cc;
+        cursor: pointer;
+        padding: 0;
+        font-size: 9px;
+        text-align: left;
+        margin-bottom: 5px;
+      }
+
+      .directive-toggle:hover {
+        color: #004499;
+      }
+
+      #directiveContent {
+        margin-top: 5px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="overlay"></div>
+    <div id="controls">
+      <label for="endpointSelect">Token Management Endpoint:</label>
+      <select id="endpointSelect">
+        <option value="local">Local</option>
+        <option value="openai">Corporate (OpenAI)</option>
+      </select>
+
+      <div id="localSettings">
+        <label for="localUrl">Endpoint URL:</label>
+        <input
+          type="text"
+          id="localUrl"
+          value="http://localhost:11434/api/generate"
+        />
+
+        <label for="localModel">Model:</label>
+        <input type="text" id="localModel" value="llama3.2:3b" />
+
+        <div id="localHeaders">
+          <label>Optional Headers:</label>
+          <div id="headersList">
+            <div class="header-entry">
+              <input type="text" placeholder="Bearer" class="header-name" />
+              <input type="text" placeholder="sk-..." class="header-value" />
+              <button class="remove-header" onclick="removeHeader(this)">
+                ×
+              </button>
+            </div>
+          </div>
+          <button id="addHeader" onclick="addHeader()">Add Header</button>
+        </div>
+      </div>
+
+      <div id="openaiSettings" style="display: none">
+        <div
+          style="
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 5px;
+            align-items: start;
+          "
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            height="20"
+            width="20"
+            viewBox="0 0 627.769 550.45"
+          >
+            <path
+              fill="#bc5353"
+              d="m614.57 504.94l-279.4-483.94c-4.38-7.588-12.47-12.262-21.23-12.262s-16.85 4.674-21.23 12.258l-279.41 483.94c-4.375 7.58-4.375 16.93 0.003 24.52 4.379 7.58 12.472 12.25 21.23 12.25h558.81c8.76 0 16.86-4.67 21.23-12.25 4.38-7.59 4.38-16.94 0-24.52z"
+            />
+            <polygon
+              points="93.977 482.88 533.9 482.88 313.94 101.89"
+              fill="#fff"
+            />
+            <path
+              d="m291.87 343.36c1.21 11.49 3.21 20.04 6.02 25.66 2.81 5.63 7.82 8.43 15.04 8.43h2.01c7.22 0 12.24-2.8 15.04-8.43 2.81-5.62 4.82-14.17 6.02-25.66l6.42-88.75c1.21-17.3 1.81-29.71 1.81-37.25 0-10.25-2.91-18.25-8.73-23.99-5.53-5.46-13.38-8.59-21.56-8.59s-16.04 3.13-21.57 8.59c-5.81 5.74-8.72 13.74-8.72 23.99 0 7.54 0.6 19.95 1.8 37.25l6.42 88.75z"
+            />
+            <circle cy="430.79" cx="313.94" r="30.747" />
+          </svg>
+          <label style="color: #bc5353">
+            It is not recommended to manage the unused tokens of OpenAI models
+            locally due to the speed of the API.
+          </label>
+
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            height="20"
+            width="20"
+            viewBox="0 0 627.769 550.45"
+          >
+            <path
+              fill="#bc5353"
+              d="m614.57 504.94l-279.4-483.94c-4.38-7.588-12.47-12.262-21.23-12.262s-16.85 4.674-21.23 12.258l-279.41 483.94c-4.375 7.58-4.375 16.93 0.003 24.52 4.379 7.58 12.472 12.25 21.23 12.25h558.81c8.76 0 16.86-4.67 21.23-12.25 4.38-7.59 4.38-16.94 0-24.52z"
+            />
+            <polygon
+              points="93.977 482.88 533.9 482.88 313.94 101.89"
+              fill="#fff"
+            />
+            <path
+              d="m291.87 343.36c1.21 11.49 3.21 20.04 6.02 25.66 2.81 5.63 7.82 8.43 15.04 8.43h2.01c7.22 0 12.24-2.8 15.04-8.43 2.81-5.62 4.82-14.17 6.02-25.66l6.42-88.75c1.21-17.3 1.81-29.71 1.81-37.25 0-10.25-2.91-18.25-8.73-23.99-5.53-5.46-13.38-8.59-21.56-8.59s-16.04 3.13-21.57 8.59c-5.81 5.74-8.72 13.74-8.72 23.99 0 7.54 0.6 19.95 1.8 37.25l6.42 88.75z"
+            />
+            <circle cy="430.79" cx="313.94" r="30.747" />
+          </svg>
+          <label style="color: #bc5353">
+            Never work alone. Working inside confined spaces requires a minimum
+            of two people - one to watch and one to work.
+          </label>
+        </div>
+
+        <label for="openaiApiKey">Access Key:</label>
+        <input type="password" id="openaiApiKey" placeholder="sk-..." />
+
+        <label for="openaiModel">Model:</label>
+        <select id="openaiModel">
+          <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+          <option value="gpt-4">gpt-4</option>
+          <option value="gpt-4-turbo">gpt-4-turbo</option>
+          <option value="gpt-4o">gpt-4o</option>
+          <option value="gpt-4o-mini">gpt-4o-mini</option>
+          <option value="o1-mini">o1-mini</option>
+          <option value="o1-preview">o1-preview</option>
+        </select>
+      </div>
+
+      <div style="margin-top: 10px">
+        <button id="directiveToggle" class="directive-toggle">▼</button>
+        <div id="directiveContent" style="display: none">
+          <textarea id="initialPrompt" rows="4">
+How do I popular on social media to win</textarea
+          >
+        </div>
+      </div>
+
+      <button id="startButton">Start</button>
+    </div>
+
+    <canvas id="world"></canvas>
+
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+
+    <script>
+      const Engine = Matter.Engine,
+        Render = Matter.Render,
+        World = Matter.World,
+        Bodies = Matter.Bodies,
+        Body = Matter.Body,
+        Events = Matter.Events,
+        Vertices = Matter.Vertices,
+        Vector = Matter.Vector,
+        Constraint = Matter.Constraint,
+        Composite = Matter.Composite;
+
+      const SPAWN_X = 100;
+      const SPAWN_Y = 0;
+      const SPAWN_OSCILLATION = 30;
+      const PATH_WIDTH = 320;
+      const PATH_SEG_OVERLAP = 1.85;
+      const CONVEYOR_SPEED = 3;
+      const PATH_SEGMENTS = 128;
+      const CLEANUP_MARGIN = 100;
+      const PISTON_WIDTH = 280;
+      const PISTON_HEIGHT = 40;
+      const PISTON_SPEED = 400;
+      const PISTON_STOP = 1554;
+
+      const COLORS = [
+        { fill: "#7b5804", stroke: "#4a3501" },
+        { fill: "#9c8c3c", stroke: "#6e632a" },
+        { fill: "#4a412a", stroke: "#322c1c" },
+        { fill: "#8b6b61", stroke: "#5d4037" },
+        { fill: "#6b4423", stroke: "#4a2e17" },
+        { fill: "#867e36", stroke: "#5c5624" },
+      ];
+
+      let currentColorIndex = 0;
+
+      const engine = Engine.create();
+      const world = engine.world;
+
+      const canvas = document.getElementById("world");
+      const render = Render.create({
+        canvas: canvas,
+        engine: engine,
+        options: {
+          width: window.innerWidth,
+          height: window.innerHeight,
+          wireframes: false,
+          background: "#f0f0f0",
+        },
+      });
+
+      Render.run(render);
+      Engine.run(engine);
+
+      function createPathPoints() {
+        const points = [];
+        const verticalStartX = 100;
+        const verticalStartY = 0;
+        const verticalEndY = window.innerHeight - 100;
+        const horizontalEndX = window.innerWidth - 300;
+        const cornerRadius = 180;
+
+        const centerX = verticalStartX + cornerRadius;
+        const centerY = verticalEndY - cornerRadius;
+
+        const startAngle = Math.PI;
+        const endAngle = Math.PI / 2;
+
+        for (let i = 0; i <= PATH_SEGMENTS / 4; i++) {
+          const t = i / (PATH_SEGMENTS / 4);
+          points.push({
+            x: verticalStartX,
+            y:
+              verticalStartY +
+              (verticalEndY - cornerRadius - verticalStartY) * t,
+          });
+        }
+
+        const arcPoints = PATH_SEGMENTS / 4;
+        for (let i = 0; i <= arcPoints; i++) {
+          const t = i / arcPoints;
+          const angle = startAngle + (endAngle - startAngle) * t;
+          points.push({
+            x: centerX + cornerRadius * Math.cos(angle),
+            y: centerY + cornerRadius * Math.sin(angle),
+          });
+        }
+
+        for (let i = 0; i <= PATH_SEGMENTS / 4; i++) {
+          const t = i / (PATH_SEGMENTS / 4);
+          points.push({
+            x:
+              verticalStartX +
+              cornerRadius +
+              (horizontalEndX - (verticalStartX + cornerRadius)) * t,
+            y: verticalEndY,
+          });
+        }
+        return points;
+      }
+
+      const pathPoints = createPathPoints();
+      const WALL_THICKNESS = PATH_WIDTH / 2;
+      const topPathSegments = [];
+      const bottomPathSegments = [];
+
+      pathPoints.forEach((point, index) => {
+        if (index < pathPoints.length - 1) {
+          const nextPoint = pathPoints[index + 1];
+          const segmentVector = Vector.sub(nextPoint, point);
+          const segmentLength = Vector.magnitude(segmentVector);
+          const segmentAngle = Math.atan2(segmentVector.y, segmentVector.x);
+          const normal = Vector.perp(Vector.normalise(segmentVector));
+          const offset = Vector.mult(normal, WALL_THICKNESS);
+
+          const adjustedLength = segmentLength * PATH_SEG_OVERLAP;
+
+          const topPosition = Vector.add(Vector.add(point, nextPoint), offset);
+          const topCenter = Vector.div(topPosition, 2);
+
+          const topSegment = Bodies.rectangle(
+            topCenter.x,
+            topCenter.y,
+            adjustedLength,
+            30,
+            {
+              isStatic: true,
+              angle: segmentAngle,
+              render: { fillStyle: "#333333" },
+              friction: 0,
+              label: "topWallSegment",
+            }
+          );
+          topPathSegments.push(topSegment);
+
+          const bottomOffset = Vector.mult(offset, -1);
+          const bottomPosition = Vector.add(
+            Vector.add(point, nextPoint),
+            bottomOffset
+          );
+          const bottomCenter = Vector.div(bottomPosition, 2);
+
+          const bottomSegment = Bodies.rectangle(
+            bottomCenter.x,
+            bottomCenter.y,
+            adjustedLength,
+            30,
+            {
+              isStatic: true,
+              angle: segmentAngle,
+              render: { fillStyle: "#333333" },
+              friction: 0,
+              label: "bottomWallSegment",
+            }
+          );
+          bottomPathSegments.push(bottomSegment);
+        }
+      });
+
+      World.add(world, [...topPathSegments, ...bottomPathSegments]);
+
+      let oscillationTime = 0;
+
+      function createWord(word) {
+        const wordWidth = word.length * 10;
+        const wordHeight = 16;
+
+        const oscillatingX =
+          SPAWN_X + Math.sin(oscillationTime) * SPAWN_OSCILLATION;
+        oscillationTime += 0.1;
+
+        const colors = COLORS[currentColorIndex];
+
+        const wordBody = Bodies.rectangle(
+          oscillatingX,
+          SPAWN_Y,
+          wordWidth,
+          wordHeight,
+          {
+            restitution: 0.5,
+            friction: 0.0005,
+            render: {
+              fillStyle: colors.fill,
+              strokeStyle: colors.stroke,
+              lineWidth: 2,
+              text: {
+                content: word,
+                color: "#ffffff",
+                size: 12,
+                family: "Arial",
+              },
+            },
+            label: "word",
+            word: word,
+            collisionFilter: {
+              category: 0x0001,
+              mask: 0x0001,
+            },
+          }
+        );
+
+        World.add(world, wordBody);
+      }
+
+      let storyContext = "";
+
+      let isFetching = false;
+
+      let generationSettings = {
+        endpoint: "local", // 'local' or 'openai'
+        localUrl: "",
+        localModel: "",
+        openaiApiKey: "",
+        openaiModel: "",
+        initialPrompt: "",
+      };
+
+      function addHeader() {
+        const headerEntry = document.createElement("div");
+        headerEntry.className = "header-entry";
+        headerEntry.innerHTML = `
+          <input type="text" placeholder="Header name" class="header-name" />
+          <input type="text" placeholder="Header value" class="header-value" />
+          <button class="remove-header" onclick="removeHeader(this)">×</button>
+        `;
+        document.getElementById("headersList").appendChild(headerEntry);
+      }
+
+      function removeHeader(button) {
+        button.parentElement.remove();
+      }
+
+      function getHeaders() {
+        const headers = {};
+        document.querySelectorAll(".header-entry").forEach((entry) => {
+          const name = entry.querySelector(".header-name").value.trim();
+          const value = entry.querySelector(".header-value").value.trim();
+          if (name && value) {
+            headers[name] = value;
+          }
+        });
+        return headers;
+      }
+
+      async function fetchStory() {
+        if (isFetching) return;
+        isFetching = true;
+
+        currentColorIndex = (currentColorIndex + 1) % COLORS.length;
+
+        try {
+          let response;
+          if (generationSettings.endpoint === "local") {
+            const headers = {
+              "Content-Type": "application/json",
+              ...getHeaders(), // Merge custom headers
+            };
+
+            response = await fetch(generationSettings.localUrl, {
+              method: "POST",
+              headers: headers,
+              body: JSON.stringify({
+                model: generationSettings.localModel,
+                prompt: storyContext + " " + generationSettings.initialPrompt,
+                stream: true,
+              }),
+            });
+          } else if (generationSettings.endpoint === "openai") {
+            response = await fetch(
+              "https://api.openai.com/v1/chat/completions",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: "Bearer " + generationSettings.openaiApiKey,
+                },
+                body: JSON.stringify({
+                  model: generationSettings.openaiModel,
+                  messages: [
+                    { role: "system", content: "You are a helpful assistant." },
+                    {
+                      role: "user",
+                      content:
+                        storyContext + " " + generationSettings.initialPrompt,
+                    },
+                  ],
+                  stream: true,
+                }),
+              }
+            );
+          }
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder("utf-8");
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+
+            if (generationSettings.endpoint === "local") {
+              const lines = chunk.split("\n").filter((line) => line.trim());
+
+              for (const line of lines) {
+                try {
+                  const json = JSON.parse(line);
+                  if (json.response) {
+                    processStreamedText(json.response);
+                  }
+                } catch (e) {
+                  console.warn("Failed to parse JSON:", e);
+                }
+              }
+            } else if (generationSettings.endpoint === "openai") {
+              const lines = chunk.split("\n");
+
+              for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine === "" || !trimmedLine.startsWith("data:"))
+                  continue;
+
+                const data = trimmedLine.replace("data: ", "");
+                if (data === "[DONE]") {
+                  break;
+                }
+
+                try {
+                  const json = JSON.parse(data);
+                  const content = json.choices[0].delta.content;
+                  if (content) {
+                    processStreamedText(content);
+                  }
+                } catch (e) {
+                  console.warn("Failed to parse JSON:", e);
+                }
+              }
+            }
+          }
+
+          isFetching = false;
+          setTimeout(fetchStory, 100);
+        } catch (error) {
+          console.error("Error fetching story:", error);
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          isFetching = false;
+          fetchStory();
+        }
+      }
+
+      function processStreamedText(text) {
+        const words = text.split(/\s+/);
+        words.forEach((word) => {
+          if (word.trim().length > 0) {
+            createWord(word);
+            storyContext += " " + word;
+          }
+        });
+      }
+
+      window.addEventListener("resize", () => {
+        render.canvas.width = window.innerWidth;
+        render.canvas.height = window.innerHeight;
+      });
+
+      let simulationStarted = false;
+
+      function startSimulation() {
+        if (simulationStarted) return;
+        simulationStarted = true;
+
+        document.getElementById("overlay").style.display = "none";
+        document.getElementById("controls").style.display = "none";
+
+        generationSettings.endpoint =
+          document.getElementById("endpointSelect").value;
+        generationSettings.localUrl = document.getElementById("localUrl").value;
+        generationSettings.localModel =
+          document.getElementById("localModel").value;
+        generationSettings.openaiApiKey =
+          document.getElementById("openaiApiKey").value;
+        generationSettings.openaiModel =
+          document.getElementById("openaiModel").value;
+        generationSettings.initialPrompt =
+          document.getElementById("initialPrompt").value;
+
+        fetchStory();
+      }
+
+      document
+        .getElementById("startButton")
+        .addEventListener("click", startSimulation);
+
+      document
+        .getElementById("endpointSelect")
+        .addEventListener("change", (event) => {
+          const selectedEndpoint = event.target.value;
+          document.getElementById("localSettings").style.display =
+            selectedEndpoint === "local" ? "block" : "none";
+          document.getElementById("openaiSettings").style.display =
+            selectedEndpoint === "openai" ? "block" : "none";
+        });
+
+      engine.world.bounds = {
+        min: { x: -1000, y: -1000 },
+        max: { x: 10000, y: 10000 },
+      };
+
+      Events.on(engine, "afterUpdate", function () {
+        const bodies = Matter.Composite.allBodies(world);
+        bodies.forEach((body) => {
+          if (!body.isStatic) {
+            if (
+              body.position.x < -CLEANUP_MARGIN ||
+              body.position.x > window.innerWidth + CLEANUP_MARGIN ||
+              body.position.y > window.innerHeight + CLEANUP_MARGIN
+            ) {
+              World.remove(world, body);
+            }
+          }
+        });
+      });
+
+      function drawPistonRod(context, startPoint, endPoint) {
+        const rodWidth = 8;
+        context.beginPath();
+        context.strokeStyle = "#f00";
+        context.lineWidth = rodWidth;
+        context.lineCap = "butt";
+
+        const points = [];
+        let accumulatedLength = 0;
+
+        for (let i = 0; i < pathPoints.length - 1; i++) {
+          const p1 = pathPoints[i];
+          const p2 = pathPoints[i + 1];
+          const segmentLength = Vector.magnitude(Vector.sub(p2, p1));
+
+          if (accumulatedLength + segmentLength > piston.currentDistance) {
+            const remainingDistance =
+              piston.currentDistance - accumulatedLength;
+            const t = remainingDistance / segmentLength;
+            const finalPoint = {
+              x: p1.x + (p2.x - p1.x) * t,
+              y: p1.y + (p2.y - p1.y) * t,
+            };
+            points.push(finalPoint);
+            break;
+          }
+
+          points.push(p1);
+          accumulatedLength += segmentLength;
+        }
+
+        // Curved path
+        context.moveTo(startPoint.x, startPoint.y);
+
+        // Straight vertical section
+        context.lineTo(points[0].x, points[0].y);
+
+        // Curved section
+        if (points.length >= 3) {
+          for (let i = 1; i < points.length - 1; i++) {
+            const xc = (points[i].x + points[i + 1].x) / 2;
+            const yc = (points[i].y + points[i + 1].y) / 2;
+            context.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+          }
+        }
+
+        // Final position
+        context.lineTo(endPoint.x, endPoint.y);
+        context.stroke();
+      }
+
+      Events.on(render, "afterRender", function () {
+        const context = render.context;
+
+        const startPoint = { x: SPAWN_X, y: SPAWN_Y };
+        drawPistonRod(context, startPoint, piston.position);
+
+        context.save();
+        context.font = "bold 32px Arial";
+        context.fillStyle = "#333333";
+        context.translate(230, 200);
+        context.rotate(-Math.PI / 2);
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText("← UNUSED TOKENS", 0, 0);
+        context.restore();
+
+        const bodies = Matter.Composite.allBodies(world);
+        bodies.forEach((body) => {
+          if (body.label === "word" && body.word) {
+            const pos = body.position;
+
+            context.save();
+            context.translate(pos.x, pos.y);
+            context.rotate(body.angle);
+
+            context.font = "16px Arial";
+            context.fillStyle = "#ffffff";
+            context.textAlign = "center";
+            context.textBaseline = "middle";
+            context.fillText(body.word, 0, 0);
+
+            context.restore();
+          }
+        });
+
+        const RECYCLE_ZONE = {
+          x: 190,
+          y: -100,
+          width: 400,
+          height: 200,
+        };
+
+        bodies.forEach((body) => {
+          if (!body.isStatic) {
+            if (
+              body.position.x > RECYCLE_ZONE.x &&
+              body.position.x < RECYCLE_ZONE.x + RECYCLE_ZONE.width &&
+              body.position.y > RECYCLE_ZONE.y &&
+              body.position.y < RECYCLE_ZONE.y + RECYCLE_ZONE.height
+            ) {
+              World.remove(world, body);
+            }
+          }
+        });
+      });
+
+      function getPathPosition(distance) {
+        let accumulatedLength = 0;
+
+        for (let i = 1; i < pathPoints.length; i++) {
+          const p1 = pathPoints[i - 1];
+          const p2 = pathPoints[i];
+          const segmentLength = Vector.magnitude(Vector.sub(p2, p1));
+
+          if (accumulatedLength + segmentLength >= distance) {
+            const remainingDistance = distance - accumulatedLength;
+            const t = remainingDistance / segmentLength;
+            const position = {
+              x: p1.x + (p2.x - p1.x) * t,
+              y: p1.y + (p2.y - p1.y) * t,
+            };
+            const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x) + Math.PI / 2;
+            return { position, angle };
+          }
+
+          accumulatedLength += segmentLength;
+        }
+
+        const lastPoint = pathPoints[pathPoints.length - 1];
+        const secondLastPoint = pathPoints[pathPoints.length - 2];
+        return {
+          position: lastPoint,
+          angle:
+            Math.atan2(
+              lastPoint.y - secondLastPoint.y,
+              lastPoint.x - secondLastPoint.x
+            ) +
+            Math.PI / 2,
+        };
+      }
+
+      const piston = Bodies.rectangle(
+        SPAWN_X,
+        -PISTON_HEIGHT / 2,
+        PISTON_WIDTH,
+        PISTON_HEIGHT,
+        {
+          isStatic: true,
+          friction: 0,
+          restitution: 0,
+          render: {
+            fillStyle: "#ff0000",
+            opacity: 1,
+          },
+          label: "piston",
+          isSensor: false,
+          currentDistance: 0,
+        }
+      );
+
+      World.add(world, piston);
+
+      let spaceBarPressed = false;
+
+      window.addEventListener("keydown", (event) => {
+        if (event.code === "Space") {
+          spaceBarPressed = true;
+        }
+      });
+
+      window.addEventListener("keyup", (event) => {
+        if (event.code === "Space") {
+          spaceBarPressed = false;
+        }
+      });
+
+      Events.on(engine, "beforeUpdate", function () {
+        if (spaceBarPressed) {
+          piston.isSensor = false;
+          piston.render.opacity = 1;
+          piston.collisionFilter.category = 0x0001;
+          piston.collisionFilter.mask = 0x0001;
+
+          const newDistance = Math.min(
+            piston.currentDistance + PISTON_SPEED / 60,
+            PISTON_STOP
+          );
+          const { position, angle } = getPathPosition(newDistance);
+
+          Body.setPosition(piston, position);
+          Body.setAngle(piston, angle);
+          piston.currentDistance = newDistance;
+        } else {
+          piston.isSensor = true;
+          piston.render.opacity = 0.3;
+          piston.collisionFilter.category = 0x0002;
+          piston.collisionFilter.mask = 0x0000;
+
+          const newDistance = Math.max(
+            piston.currentDistance - PISTON_SPEED / 60,
+            0
+          );
+          const { position, angle } = getPathPosition(newDistance);
+
+          Body.setPosition(piston, position);
+          Body.setAngle(piston, angle);
+          piston.currentDistance = newDistance;
+        }
+      });
+
+      document
+        .getElementById("directiveToggle")
+        .addEventListener("click", function () {
+          const directiveContent = document.getElementById("directiveContent");
+          if (directiveContent.style.display === "none") {
+            if (
+              confirm(
+                "Are you sure you want to modify the directive? This isn't typically required."
+              )
+            ) {
+              directiveContent.style.display = "block";
+              this.textContent = "Hide Directive ▲";
+            }
+          } else {
+            directiveContent.style.display = "none";
+            this.textContent = "▼";
+          }
+        });
+    </script>
+  </body>
+</html>
+
+
